@@ -14,6 +14,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Union
+from omni.isaac.core.objects import cuboid, sphere, VisualSphere
+
 
 # Third Party
 import numpy as np
@@ -939,9 +941,15 @@ class WorldConfig(Sequence):
         return None
 
     def remove_obstacle(self, name: str):
+        print()
+        print()
+        print("name of obstacle", name)
+        print()
+        print()
         for i in range(len(self.objects)):
             if self.objects[i].name == name:
                 del self.objects[i]
+                print(self.objects)
                 return
 
     def remove_absolute_paths(self) -> WorldConfig:

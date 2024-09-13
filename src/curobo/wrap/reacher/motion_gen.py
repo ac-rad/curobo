@@ -83,7 +83,7 @@ from curobo.wrap.reacher.ik_solver import IKResult, IKSolver, IKSolverConfig
 from curobo.wrap.reacher.trajopt import TrajOptResult, TrajOptSolver, TrajOptSolverConfig
 from curobo.wrap.reacher.types import ReacherSolveState, ReacherSolveType
 
-
+from omni.isaac.core.objects import sphere
 @dataclass
 class MotionGenConfig:
     """Configuration dataclass for creating a motion generation instance."""
@@ -1524,6 +1524,8 @@ class MotionGen(MotionGenConfig):
             ReacherSolveType.SINGLE, plan_config, goal_pose, start_state
         )
 
+        print("solve_state", solve_state)
+
         result = self._plan_attempts(
             solve_state,
             start_state,
@@ -1531,6 +1533,8 @@ class MotionGen(MotionGenConfig):
             plan_config,
             link_poses=link_poses,
         )
+
+        print("result", result)
         return result
 
     def plan_goalset(
@@ -2405,7 +2409,7 @@ class MotionGen(MotionGenConfig):
         for i, x in enumerate(object_names):
             obs = external_objects[i]
             sph = obs.get_bounding_spheres(
-                n_spheres,
+                1,
                 surface_sphere_radius,
                 pre_transform_pose=ee_pose,
                 tensor_args=self.tensor_args,
@@ -2658,13 +2662,16 @@ class MotionGen(MotionGenConfig):
         if len(joint_position.shape) == 1:
             joint_position = joint_position.unsqueeze(0)
         if len(joint_position.shape) > 2:
+            print(joint_position.shape)
             log_error("joint_position should be of shape (batch, dof)")
         joint_position = joint_position.unsqueeze(1)
         metrics = self.rollout_fn.rollout_constraint(
             joint_position,
             use_batch_env=False,
         )
+        print("metrics", metrics)
         valid_query = metrics.feasible.squeeze(1).item()
+        print("valid_query", valid_query)
         status = None
         if not valid_query:
             self.rollout_fn.primitive_collision_constraint.disable_cost()
@@ -2681,6 +2688,7 @@ class MotionGen(MotionGenConfig):
             self.rollout_fn.primitive_collision_constraint.enable_cost()
 
             if not within_joint_limits:
+                print("within joint limits")
                 self.rollout_fn.robot_self_collision_constraint.enable_cost()
                 return valid_query, MotionGenStatus.INVALID_START_STATE_JOINT_LIMITS
 
@@ -2693,7 +2701,9 @@ class MotionGen(MotionGenConfig):
                 .feasible.squeeze(1)
                 .item()
             )
+            print("world collision free", world_collision_free)
             if not world_collision_free:
+                print("world collision")
                 return valid_query, MotionGenStatus.INVALID_START_STATE_WORLD_COLLISION
 
             self.rollout_fn.robot_self_collision_constraint.enable_cost()
@@ -2707,6 +2717,7 @@ class MotionGen(MotionGenConfig):
             )
 
             if not self_collision_free:
+                print("self collision")
                 return valid_query, MotionGenStatus.INVALID_START_STATE_SELF_COLLISION
             status = MotionGenStatus.INVALID_START_STATE_UNKNOWN_ISSUE
         return (valid_query, status)
@@ -2925,7 +2936,11 @@ class MotionGen(MotionGenConfig):
         start_time = time.time()
         valid_query = True
         if plan_config.check_start_validity:
+            print("start state", start_state)
             valid_query, status = self.check_start_state(start_state)
+            print("check start validity", valid_query)
+            print("robot config", self.robot_cfg)
+            print("world config", self.world_model)
             if not valid_query:
                 result = MotionGenResult(
                     success=torch.as_tensor([False], device=self.tensor_args.device),
@@ -2970,6 +2985,7 @@ class MotionGen(MotionGenConfig):
                 plan_config,
                 link_poses,
             )
+            # print("plan from solve state result", result)
             time_dict["solve_time"] += result.solve_time
             time_dict["ik_time"] += result.ik_time
             time_dict["graph_time"] += result.graph_time

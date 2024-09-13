@@ -325,6 +325,9 @@ class WorldMeshCollision(WorldPrimitiveCollision):
             self.enable_obb(enable, name, None, env_idx)
         else:
             log_error("Obstacle not found in world model: " + name)
+        print()
+        print("self.world_model.objects", self.world_model.objects)
+        print()
         self.world_model.objects
 
     def enable_mesh(

@@ -542,7 +542,9 @@ class ArmBase(RolloutBase, ArmBaseConfig):
         self, act_seq: torch.Tensor, use_batch_env: bool = True
     ) -> RolloutMetrics:
         state = self.dynamics_model.forward(self.start_state, act_seq)
+        # print("roll out state", state)
         metrics = self.constraint_fn(state, use_batch_env=use_batch_env)
+        # print("rollout metrics", metrics)
         return metrics
 
     def rollout_constraint_cuda_graph(self, act_seq: torch.Tensor, use_batch_env: bool = True):
