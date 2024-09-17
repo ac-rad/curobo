@@ -522,7 +522,6 @@ class UsdHelper:
                     get_sphere_attrs(x, cache=self._xform_cache, transform=r_T_w)
                 )
             elif x.IsA(UsdGeom.Mesh):
-                #print(x)
                 if obstacles["mesh"] is None:
                     obstacles["mesh"] = []
                 m_data = get_mesh_attrs(x, cache=self._xform_cache, transform=r_T_w)
