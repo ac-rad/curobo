@@ -339,15 +339,15 @@ class MultiModalStacking(BaseStacking):
             name=name,
             cube_initial_positions=np.array(
                 [
-                    # [0.50, 0.0, 0.1],
-                    # [0.50, -0.20, 0.1],
-                    # [0.50, 0.20, 0.1],
+                    [0.50, 0.0, 0.1],
+                    [0.50, -0.20, 0.1],
+                    [0.50, 0.20, 0.1],
                     [0.30, -0.20, 0.1],
                     [0.30, 0.0, 0.1],
-                    # [0.30, 0.20, 0.1],
-                    # [0.70, -0.20, 0.1],
-                    # [0.70, 0.0, 0.1],
-                    # [0.70, 0.20, 0.1],
+                    [0.30, 0.20, 0.1],
+                    [0.70, -0.20, 0.1],
+                    [0.70, 0.0, 0.1],
+                    [0.70, 0.20, 0.1],
                 ]
             )
             / get_stage_units(),
@@ -424,7 +424,7 @@ class MultiModalStacking(BaseStacking):
 
 
 robot_prim_path = "/World/Franka/panda_link0"
-ignore_substring = ["Franka", "material", "Plane"]
+ignore_substring = "/Isaac/Robots/Franka/franka.usd"
 my_world = World(stage_units_in_meters=1.0)
 stage = my_world.stage
 stage.SetDefaultPrim(stage.GetPrimAtPath("/World"))
