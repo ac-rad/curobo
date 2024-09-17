@@ -320,9 +320,6 @@ class CuroboController(BaseController):
             ignore_substring=ignore_substring, reference_prim_path=robot_prim_path
         ).get_collision_check_world()
         # add ground plane as it's not readable:
-        print()
-        print("obstacles:", obstacles)
-        print()
         obstacles.add_obstacle(self._world_cfg_table.cuboid[0])
         self.motion_gen.update_world(obstacles)
         self._world_cfg = obstacles
@@ -424,7 +421,7 @@ class MultiModalStacking(BaseStacking):
 
 
 robot_prim_path = "/World/Franka/panda_link0"
-ignore_substring = "/Isaac/Robots/Franka/franka.usd"
+ignore_substring = ["Franka", "TargetCube", "material", "Plane"]
 my_world = World(stage_units_in_meters=1.0)
 stage = my_world.stage
 stage.SetDefaultPrim(stage.GetPrimAtPath("/World"))
