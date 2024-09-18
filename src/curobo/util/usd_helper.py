@@ -18,6 +18,8 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
+from pxr import PhysxSchema
+
 # CuRobo
 from curobo.cuda_robot_model.cuda_robot_model import CudaRobotModel, CudaRobotModelConfig
 from curobo.geom.types import (
@@ -357,16 +359,30 @@ def get_mesh_attrs(prim, cache=None, transform=None) -> Mesh:
     faces = list(prim.GetAttribute("faceVertexIndices").Get())
 
     face_count = list(prim.GetAttribute("faceVertexCounts").Get())
+
     # assume faces are 3:
-    if len(faces) / 3 != len(face_count):
-        log_warn(
-            "Mesh faces "
-            + str(len(faces) / 3)
-            + " are not matching faceVertexCounts "
-            + str(len(face_count))
-        )
-        return None
-    faces = np.array(faces).reshape(len(face_count), 3).tolist()
+    # if len(faces) / 3 != len(face_count):
+    #     log_warn(
+    #         "Mesh faces "
+    #         + str(len(faces) / 3)
+    #         + " are not matching faceVertexCounts "
+    #         + str(len(face_count))
+    #     )
+    #     return None
+    # faces = np.array(faces).reshape(len(face_count), 3).tolist()
+
+    tri_faces = []
+    quad_faces = []
+    idx = 0
+    for count in face_count:
+        if count == 3:
+            tri_faces.append(faces[idx:idx + count])
+        elif count == 4:
+            quad_faces.append(faces[idx:idx + count])
+        idx += count
+    tri_faces = np.array(tri_faces).reshape(len(tri_faces), 3).tolist()
+    quad_faces = np.array(quad_faces).reshape(len(quad_faces), 4).tolist()
+
     if prim.GetAttribute("xformOp:scale").IsValid():
         scale = list(prim.GetAttribute("xformOp:scale").Get())
     else:
@@ -395,7 +411,7 @@ def get_mesh_attrs(prim, cache=None, transform=None) -> Mesh:
         name=str(prim.GetPath()),
         pose=pose,
         vertices=points,
-        faces=faces,
+        faces=tri_faces,
         scale=scale,
     )
     # print(len(m.vertices), max(m.faces))
