@@ -83,7 +83,6 @@ from curobo.wrap.reacher.ik_solver import IKResult, IKSolver, IKSolverConfig
 from curobo.wrap.reacher.trajopt import TrajOptResult, TrajOptSolver, TrajOptSolverConfig
 from curobo.wrap.reacher.types import ReacherSolveState, ReacherSolveType
 
-
 @dataclass
 class MotionGenConfig:
     """Configuration dataclass for creating a motion generation instance."""
