@@ -10,9 +10,18 @@
 #
 
 
+# Standard Library
+import random
+
 # Third Party
 import networkx as nx
+import numpy as np
 import torch
+
+# This is needed to get deterministic results from networkx.
+# Note: it has to be set in global space.
+np.random.seed(2)
+random.seed(2)
 
 
 class NetworkxGraph(object):
@@ -54,11 +63,7 @@ class NetworkxGraph(object):
 
     def path_exists(self, start_node_idx, goal_node_idx):
         self.update_graph()
-        # check if nodes exist in the graph
-        if self.graph.has_node(start_node_idx) and self.graph.has_node(goal_node_idx):
-            return nx.has_path(self.graph, start_node_idx, goal_node_idx)
-        else:
-            return False
+        return nx.has_path(self.graph, start_node_idx, goal_node_idx)
 
     def get_shortest_path(self, start_node_idx, goal_node_idx, return_length=False):
         self.update_graph()

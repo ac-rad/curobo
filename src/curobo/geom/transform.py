@@ -8,12 +8,8 @@
 # without an express license agreement from NVIDIA CORPORATION or
 # its affiliates is strictly prohibited.
 #
-"""
-Implements differentiable point and pose transformations leveraging Warp kernels.
-Most of these implementations are available through :class:`~curobo.types.math.Pose`.
-"""
 # Standard Library
-from typing import Optional, Tuple
+from typing import Optional
 
 # Third Party
 import torch
@@ -27,35 +23,8 @@ from curobo.util.warp import init_warp
 
 
 def transform_points(
-    position: torch.Tensor,
-    quaternion: torch.Tensor,
-    points: torch.Tensor,
-    out_points: Optional[torch.Tensor] = None,
-    out_gp: Optional[torch.Tensor] = None,
-    out_gq: Optional[torch.Tensor] = None,
-    out_gpt: Optional[torch.Tensor] = None,
-) -> torch.Tensor:
-    """
-    Transforms the given points using the provided position and quaternion.
-
-    Args:
-        position: The position tensor representing the translation of the transformation.
-        quaternion: The quaternion tensor representing the rotation of the transformation.
-            Quaternion format is [w, x, y, z].
-        points: The points to be transformed.
-        out_points: If provided, the transformed points will be stored in this tensor. If not
-            provided, a new tensor will be created.
-        out_gp: If provided, the gradient of the transformed points with respect to the position
-            will be stored in this tensor. If not provided, a new tensor will be created.
-        out_gq: If provided, the gradient of the transformed points with respect to the quaternion
-            will be stored in this tensor. If not provided, a new tensor will be created.
-        out_gpt: If provided, the gradient of the transformed points with respect to the original
-            points will be stored in this tensor. If not provided, a new tensor will be created.
-
-    Returns:
-        torch.Tensor: The transformed points.
-    """
-
+    position, quaternion, points, out_points=None, out_gp=None, out_gq=None, out_gpt=None
+):
     if out_points is None:
         out_points = torch.zeros((points.shape[0], 3), device=points.device, dtype=points.dtype)
     if out_gp is None:
@@ -71,35 +40,8 @@ def transform_points(
 
 
 def batch_transform_points(
-    position: torch.Tensor,
-    quaternion: torch.Tensor,
-    points: torch.Tensor,
-    out_points: Optional[torch.Tensor] = None,
-    out_gp: Optional[torch.Tensor] = None,
-    out_gq: Optional[torch.Tensor] = None,
-    out_gpt: Optional[torch.Tensor] = None,
-) -> torch.Tensor:
-    """
-    Transforms the given points using the provided batch of position and quaternion.
-
-    Args:
-        position: The position tensor representing the translation of the transformation. Shape
-            should be (batch_size, 3).
-        quaternion: The quaternion tensor representing the rotation of the transformation.
-            Quaternion format is [w, x, y, z]. Shape should be (batch_size, 4).
-        points: The points to be transformed. Shape should be (batch_size, num_points, 3).
-        out_points: If provided, the transformed points will be stored in this tensor. If not
-            provided, a new tensor will be created.
-        out_gp: If provided, the gradient of the transformed points with respect to the position
-            will be stored in this tensor. If not provided, a new tensor will be created.
-        out_gq: If provided, the gradient of the transformed points with respect to the quaternion
-            will be stored in this tensor. If not provided, a new tensor will be created.
-        out_gpt: If provided, the gradient of the transformed points with respect to the original
-            points will be stored in this tensor. If not provided, a new tensor will be created.
-
-    Returns:
-        torch.Tensor: The transformed points with shape (batch_size, num_points, 3).
-    """
+    position, quaternion, points, out_points=None, out_gp=None, out_gq=None, out_gpt=None
+):
     if out_points is None:
         out_points = torch.zeros(
             (points.shape[0], points.shape[1], 3), device=points.device, dtype=points.dtype
@@ -119,69 +61,33 @@ def batch_transform_points(
 
 
 @get_torch_jit_decorator()
-def get_inv_transform(
-    w_rot_c: torch.Tensor, w_trans_c: torch.Tensor
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Get the inverse of the given transformation.
-
-    Args:
-        w_rot_c: Rotation matrix in world frame.
-        w_trans_c: Translation vector in world frame.
-
-    Returns:
-        Tuple[torch.Tensor, torch.Tensor]: The inverse rotation matrix and translation vector.
-    """
+def get_inv_transform(w_rot_c, w_trans_c):
+    # type: (Tensor, Tensor) -> Tuple[Tensor, Tensor]
     c_rot_w = w_rot_c.transpose(-1, -2)
     c_trans_w = -1.0 * (c_rot_w @ w_trans_c.unsqueeze(-1)).squeeze(-1)
     return c_rot_w, c_trans_w
 
 
 @get_torch_jit_decorator()
-def transform_point_inverse(
-    point: torch.Tensor, rot: torch.Tensor, trans: torch.Tensor
-) -> torch.Tensor:
-    """Transforms the given point using the inverse of the provided transformation.
+def transform_point_inverse(point, rot, trans):
+    # type: (Tensor, Tensor, Tensor) -> Tensor
 
-    Args:
-        point: Input point to be transformed.
-        rot: Rotation matrix.
-        trans: Translation vector.
-
-    Returns:
-        torch.Tensor: The transformed point.
-    """
     # new_point = (rot @ (point).unsqueeze(-1)).squeeze(-1) + trans
     n_rot, n_trans = get_inv_transform(rot, trans)
     new_point = (point @ n_rot.transpose(-1, -2)) + n_trans
     return new_point
 
 
-def matrix_to_quaternion(
-    matrix: torch.Tensor,
-    out_quat: Optional[torch.Tensor] = None,
-    adj_matrix: Optional[torch.Tensor] = None,
-) -> torch.Tensor:
-    """Converts the given rotation matrix to quaternion.
-
-    Args:
-        matrix: Rotation matrices as tensor of shape (..., 3, 3).
-        out_quat: Output tensor to store the quaternions. If not provided, a new tensor will be
-            created.
-        adj_matrix: Gradient tensor, if not provided, a new tensor will be created.
-
-    Returns:
-        torch.Tensor: Quaternions with real part first, as tensor of shape (..., 4) [qw, qx,qy,qz].
-    """
+def matrix_to_quaternion(matrix, out_quat=None, adj_matrix=None):
     matrix = matrix.view(-1, 3, 3)
     out_quat = MatrixToQuaternion.apply(matrix, out_quat, adj_matrix)
     # out_quat = cuda_matrix_to_quaternion(matrix)
     return out_quat
 
 
-def cuda_matrix_to_quaternion(matrix: torch.Tensor) -> torch.Tensor:
-    """Convert rotations given as rotation matrices to quaternions.
-
-    This is not differentiable. Use :func:`~matrix_to_quaternion` for differentiable conversion.
+def cuda_matrix_to_quaternion(matrix):
+    """
+    Convert rotations given as rotation matrices to quaternions.
     Args:
         matrix: Rotation matrices as tensor of shape (..., 3, 3).
 
@@ -202,32 +108,19 @@ def cuda_matrix_to_quaternion(matrix: torch.Tensor) -> torch.Tensor:
     return out_quat
 
 
-def quaternion_to_matrix(
-    quaternions: torch.Tensor,
-    out_mat: Optional[torch.Tensor] = None,
-    adj_quaternion: Optional[torch.Tensor] = None,
-) -> torch.Tensor:
-    """Convert quaternion to rotation matrix.
-
-    Args:
-        quaternions: Input quaternions with real part first, as tensor of shape (..., 4).
-        out_mat: Output rotation matrices as tensor of shape (..., 3, 3). If not provided, a new
-            tensor will be created.
-        adj_quaternion: Gradient tensor, if not provided, a new tensor will be created.
-
-    Returns:
-        torch.Tensor: Rotation matrices as tensor of shape (..., 3, 3).
-    """
+def quaternion_to_matrix(quaternions, out_mat=None, adj_quaternion=None):
     # return torch_quaternion_to_matrix(quaternions)
     out_mat = QuatToMatrix.apply(quaternions, out_mat, adj_quaternion)
     return out_mat
 
 
-def torch_quaternion_to_matrix(quaternions: torch.Tensor) -> torch.Tensor:
-    """Convert rotations given as quaternions to rotation matrices.
+def torch_quaternion_to_matrix(quaternions):
+    """
+    Convert rotations given as quaternions to rotation matrices.
 
     Args:
-        quaternions: quaternions with real part first, as tensor of shape (..., 4).
+        quaternions: quaternions with real part first,
+            as tensor of shape (..., 4).
 
     Returns:
         Rotation matrices as tensor of shape (..., 3, 3).
@@ -256,20 +149,7 @@ def torch_quaternion_to_matrix(quaternions: torch.Tensor) -> torch.Tensor:
 
 def pose_to_matrix(
     position: torch.Tensor, quaternion: torch.Tensor, out_matrix: Optional[torch.Tensor] = None
-) -> torch.Tensor:
-    """Converts the given pose to a transformation matrix.
-
-    Args:
-        position: The position tensor representing the translation of the transformation.
-        quaternion: The quaternion tensor representing the rotation of the transformation.
-            Quaternion format is [w, x, y, z].
-        out_matrix: If provided, the transformation matrix will be stored in this tensor. If not
-            provided, a new tensor will be created.
-
-    Returns:
-        torch.Tensor: The transformation matrix.
-    """
-
+):
     if out_matrix is None:
         if len(position.shape) == 2:
             out_matrix = torch.zeros(
@@ -288,44 +168,17 @@ def pose_to_matrix(
 
 
 def pose_multiply(
-    position: torch.Tensor,
-    quaternion: torch.Tensor,
-    position2: torch.Tensor,
-    quaternion2: torch.Tensor,
-    out_position: Optional[torch.Tensor] = None,
-    out_quaternion: Optional[torch.Tensor] = None,
-    adj_pos: Optional[torch.Tensor] = None,
-    adj_quat: Optional[torch.Tensor] = None,
-    adj_pos2: Optional[torch.Tensor] = None,
-    adj_quat2: Optional[torch.Tensor] = None,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Multiplies two poses.
-
-    The input poses can either be of shape (3,) or (batch_size, 3).
-
-    Args:
-        position: The position tensor representing the translation of the first transformation.
-        quaternion: The quaternion tensor representing the rotation of the first transformation.
-            The quaternion format is [w, x, y, z].
-        position2: The position tensor representing the translation of the second transformation.
-        quaternion2: The quaternion tensor representing the rotation of the second transformation.
-        out_position: If provided, the position tensor of the multiplied pose will be stored in
-            this tensor. If not provided, a new tensor will be created.
-        out_quaternion: If provided, the quaternion tensor of the multiplied pose will be stored in
-            this tensor. If not provided, a new tensor will be created.
-        adj_pos: Gradient tensor for the position of the first pose. If not provided, a new tensor
-            will be created.
-        adj_quat: Gradient tensor for the quaternion of the first pose. If not provided, a new
-            tensor will be created.
-        adj_pos2: Gradient tensor for the position of the second pose. If not provided, a new
-            tensor will be created.
-        adj_quat2: Gradient tensor for the quaternion of the second pose. If not provided, a new
-            tensor will be created.
-
-    Returns:
-        Tuple[torch.Tensor, torch.Tensor]: The position and quaternion tensors of the multiplied
-            pose.
-    """
+    position,
+    quaternion,
+    position2,
+    quaternion2,
+    out_position=None,
+    out_quaternion=None,
+    adj_pos=None,
+    adj_quat=None,
+    adj_pos2=None,
+    adj_quat2=None,
+):
     if position.shape == position2.shape:
         out_position, out_quaternion = BatchTransformPose.apply(
             position,
@@ -359,31 +212,13 @@ def pose_multiply(
 
 
 def pose_inverse(
-    position: torch.Tensor,
-    quaternion: torch.Tensor,
-    out_position: Optional[torch.Tensor] = None,
-    out_quaternion: Optional[torch.Tensor] = None,
-    adj_pos: Optional[torch.Tensor] = None,
-    adj_quat: Optional[torch.Tensor] = None,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """Get the inverse of the given pose.
-
-    Args:
-        position: The position tensor representing the translation of the transformation.
-        quaternion: The quaternion tensor representing the rotation of the transformation.
-        out_position: If provided, the position tensor of the inverse pose will be stored in this
-            tensor. If not provided, a new tensor will be created.
-        out_quaternion: If provided, the quaternion tensor of the inverse pose will be stored in
-            this tensor. If not provided, a new tensor will be created.
-        adj_pos: Gradient tensor for the position of the pose. If not provided, a new tensor will
-            be created.
-        adj_quat: Gradient tensor for the quaternion of the pose. If not provided, a new tensor
-            will be created.
-
-    Returns:
-        Tuple[torch.Tensor, torch.Tensor]: The position and quaternion tensors of the inverse pose.
-    """
-
+    position,
+    quaternion,
+    out_position=None,
+    out_quaternion=None,
+    adj_pos=None,
+    adj_quat=None,
+):
     out_position, out_quaternion = PoseInverse.apply(
         position,
         quaternion,
@@ -402,17 +237,7 @@ def compute_pose_inverse(
     quat: wp.array(dtype=wp.vec4),
     out_position: wp.array(dtype=wp.vec3),
     out_quat: wp.array(dtype=wp.vec4),
-):
-    """Compute inverse of pose. This is a warp kernel.
-
-    Args:
-        position: Input position.
-        quat: Input quaternion.
-        out_position: Output position.
-        out_quat: Output quaternion.
-    """
-
-    # b pose_1 and b pose_2, compute pose_1 * pose_2
+):  # b pose_1 and b pose_2, compute pose_1 * pose_2
     b_idx = wp.tid()
     # read data:
 
@@ -427,7 +252,11 @@ def compute_pose_inverse(
     # write pt:
     out_q = wp.transform_get_rotation(t_3)
 
-    out_v = wp.vec4(out_q[3], out_q[0], out_q[1], out_q[2])
+    out_v = wp.vec4()
+    out_v[0] = out_q[3]  # out_q[3]
+    out_v[1] = out_q[0]  # [0]
+    out_v[2] = out_q[1]  # wp.extract(out_q, 1)
+    out_v[3] = out_q[2]  # wp.extract(out_q, 2)
 
     out_position[b_idx] = wp.transform_get_translation(t_3)
     out_quat[b_idx] = out_v
@@ -438,7 +267,6 @@ def compute_matrix_to_quat(
     in_mat: wp.array(dtype=wp.mat33),
     out_quat: wp.array(dtype=wp.vec4),
 ):
-    """A warp kernel to convert rotation matrix to quaternion."""
     # b pose_1 and b pose_2, compute pose_1 * pose_2
     b_idx = wp.tid()
     # read data:
@@ -449,7 +277,11 @@ def compute_matrix_to_quat(
     # create a transform from a vector/quaternion:
     out_q = wp.quat_from_matrix(in_m)
 
-    out_v = wp.vec4(out_q[3], out_q[0], out_q[1], out_q[2])
+    out_v = wp.vec4()
+    out_v[0] = out_q[3]  # wp.extract(out_q, 3)
+    out_v[1] = out_q[0]  # wp.extract(out_q, 0)
+    out_v[2] = out_q[1]  # wp.extract(out_q, 1)
+    out_v[3] = out_q[2]  # wp.extract(out_q, 2)
     # write pt:
     out_quat[b_idx] = out_v
 
@@ -462,9 +294,7 @@ def compute_transform_point(
     n_pts: wp.int32,
     n_poses: wp.int32,
     out_pt: wp.array(dtype=wp.vec3),
-):
-    """A warp kernel to transform the given points using the provided position and quaternion."""
-    # given n,3 points and b poses, get b,n,3 transformed points
+):  # given n,3 points and b poses, get b,n,3 transformed points
     # we tile as
     tid = wp.tid()
     b_idx = tid / (n_pts)
@@ -495,10 +325,7 @@ def compute_batch_transform_point(
     n_pts: wp.int32,
     n_poses: wp.int32,
     out_pt: wp.array(dtype=wp.vec3),
-):
-    """A warp kernel to transform batch of points by batch of poses."""
-
-    # given n,3 points and b poses, get b,n,3 transformed points
+):  # given n,3 points and b poses, get b,n,3 transformed points
     # we tile as
     tid = wp.tid()
     b_idx = tid / (n_pts)
@@ -529,9 +356,7 @@ def compute_batch_pose_multipy(
     quat2: wp.array(dtype=wp.vec4),
     out_position: wp.array(dtype=wp.vec3),
     out_quat: wp.array(dtype=wp.vec4),
-):
-    """A warp kernel multiplying two batch of poses."""
-    # b pose_1 and b pose_2, compute pose_1 * pose_2
+):  # b pose_1 and b pose_2, compute pose_1 * pose_2
     b_idx = wp.tid()
     # read data:
 
@@ -554,7 +379,11 @@ def compute_batch_pose_multipy(
     # write pt:
     out_q = wp.transform_get_rotation(t_3)
 
-    out_v = wp.vec4(out_q[3], out_q[0], out_q[1], out_q[2])
+    out_v = wp.vec4()
+    out_v[0] = out_q[3]
+    out_v[1] = out_q[0]
+    out_v[2] = out_q[1]
+    out_v[3] = out_q[2]
 
     out_position[b_idx] = wp.transform_get_translation(t_3)
     out_quat[b_idx] = out_v
@@ -565,7 +394,6 @@ def compute_quat_to_matrix(
     quat: wp.array(dtype=wp.vec4),
     out_mat: wp.array(dtype=wp.mat33),
 ):
-    """A warp kernel to convert quaternion to rotation matrix."""
     # b pose_1 and b pose_2, compute pose_1 * pose_2
     b_idx = wp.tid()
     # read data:
@@ -589,9 +417,7 @@ def compute_pose_multipy(
     quat2: wp.array(dtype=wp.vec4),
     out_position: wp.array(dtype=wp.vec3),
     out_quat: wp.array(dtype=wp.vec4),
-):
-    """A warp kernel to multiply a batch of poses (position2) by a pose."""
-    # b pose_1 and b pose_2, compute pose_1 * pose_2
+):  # b pose_1 and b pose_2, compute pose_1 * pose_2
     b_idx = wp.tid()
     # read data:
 
@@ -614,15 +440,17 @@ def compute_pose_multipy(
     # write pt:
     out_q = wp.transform_get_rotation(t_3)
 
-    out_v = wp.vec4(out_q[3], out_q[0], out_q[1], out_q[2])
+    out_v = wp.vec4()
+    out_v[0] = out_q[3]
+    out_v[1] = out_q[0]
+    out_v[2] = out_q[1]
+    out_v[3] = out_q[2]
 
     out_position[b_idx] = wp.transform_get_translation(t_3)
     out_quat[b_idx] = out_v
 
 
 class TransformPoint(torch.autograd.Function):
-    """A differentiable function to transform batch of points by a pose."""
-
     @staticmethod
     def forward(
         ctx,
@@ -721,8 +549,6 @@ class TransformPoint(torch.autograd.Function):
 
 
 class BatchTransformPoint(torch.autograd.Function):
-    """A differentiable function to transform batch of points by a batch of poses."""
-
     @staticmethod
     def forward(
         ctx,
@@ -770,6 +596,7 @@ class BatchTransformPoint(torch.autograd.Function):
             adj_points,
         ) = ctx.saved_tensors
         init_warp()
+        # print(adj_quaternion.shape)
         wp_adj_out_points = wp.from_torch(grad_output.view(-1, 3).contiguous(), dtype=wp.vec3)
 
         adj_position = 0.0 * adj_position
@@ -818,8 +645,6 @@ class BatchTransformPoint(torch.autograd.Function):
 
 
 class BatchTransformPose(torch.autograd.Function):
-    """A differentiable function to transform batch of poses by a pose."""
-
     @staticmethod
     def forward(
         ctx,
@@ -834,7 +659,7 @@ class BatchTransformPose(torch.autograd.Function):
         adj_position2: torch.Tensor,
         adj_quaternion2: torch.Tensor,
     ):
-        b, _ = position.view(-1, 3).shape
+        b, _ = position.shape
 
         if out_position is None:
             out_position = torch.zeros_like(position2)
@@ -961,12 +786,10 @@ class BatchTransformPose(torch.autograd.Function):
             g_p2 = adj_position2
         if ctx.needs_input_grad[3]:
             g_q2 = adj_quaternion2
-        return g_p1, g_q1, g_p2, g_q2, None, None, None, None, None, None
+        return g_p1, g_q1, g_p2, g_q2, None, None, None, None
 
 
 class TransformPose(torch.autograd.Function):
-    """A differentiable function to transform a batch of poses by another batch of poses."""
-
     @staticmethod
     def forward(
         ctx,
@@ -981,7 +804,7 @@ class TransformPose(torch.autograd.Function):
         adj_position2: torch.Tensor,
         adj_quaternion2: torch.Tensor,
     ):
-        b, _ = position2.view(-1, 3).shape
+        b, _ = position2.shape
         init_warp()
         if out_position is None:
             out_position = torch.zeros_like(position2)
@@ -1107,12 +930,10 @@ class TransformPose(torch.autograd.Function):
             g_p2 = adj_position2
         if ctx.needs_input_grad[3]:
             g_q2 = adj_quaternion2
-        return g_p1, g_q1, g_p2, g_q2, None, None, None, None, None, None
+        return g_p1, g_q1, g_p2, g_q2, None, None, None, None
 
 
 class PoseInverse(torch.autograd.Function):
-    """A differentiable function to get the inverse of a pose (also supports batch)."""
-
     @staticmethod
     def forward(
         ctx,
@@ -1207,6 +1028,8 @@ class PoseInverse(torch.autograd.Function):
             adj_inputs=[
                 None,
                 None,
+                None,
+                None,
             ],
             adj_outputs=[
                 None,
@@ -1221,12 +1044,10 @@ class PoseInverse(torch.autograd.Function):
         if ctx.needs_input_grad[1]:
             g_q1 = adj_quaternion
 
-        return g_p1, g_q1, None, None, None, None
+        return g_p1, g_q1, None, None
 
 
 class QuatToMatrix(torch.autograd.Function):
-    """A differentiable function for converting quaternions to rotation matrices."""
-
     @staticmethod
     def forward(
         ctx,
@@ -1276,7 +1097,7 @@ class QuatToMatrix(torch.autograd.Function):
 
         wp_adj_out_mat = wp.from_torch(grad_out_mat.view(-1, 3, 3).contiguous(), dtype=wp.mat33)
 
-        adj_quaternion[:] = 0.0 * adj_quaternion
+        adj_quaternion = 0.0 * adj_quaternion
 
         wp_adj_quat = wp.from_torch(adj_quaternion.view(-1, 4), dtype=wp.vec4)
 
@@ -1310,8 +1131,6 @@ class QuatToMatrix(torch.autograd.Function):
 
 
 class MatrixToQuaternion(torch.autograd.Function):
-    """A differentiable function for converting rotation matrices to quaternions."""
-
     @staticmethod
     def forward(
         ctx,

@@ -10,12 +10,6 @@
 #
 
 
-try:
-    # Third Party
-    import isaacsim
-except ImportError:
-    pass
-
 # Third Party
 import torch
 

@@ -65,5 +65,3 @@ omit = [
     "src/curobo/rollout/cost/manipulability_cost.py",
 ]
 
-[tool.interrogate]
-ignore-regex = ["forward", "backward"]

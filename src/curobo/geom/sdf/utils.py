@@ -8,28 +8,17 @@
 # without an express license agreement from NVIDIA CORPORATION or
 # its affiliates is strictly prohibited.
 #
-"""Module contains uilities for world collision checkers."""
 
 # CuRobo
-from curobo.geom.sdf.world import (
-    CollisionCheckerType,
-    WorldCollision,
-    WorldCollisionConfig,
-    WorldPrimitiveCollision,
-)
+from curobo.geom.sdf.world import CollisionCheckerType, WorldCollisionConfig
 from curobo.util.logger import log_error
 
 
-def create_collision_checker(config: WorldCollisionConfig) -> WorldCollision:
-    """Create collision checker based on configuration.
-
-    Args:
-        config: Input world collision configuration.
-
-    Returns:
-        Type of collision checker based on configuration.
-    """
+def create_collision_checker(config: WorldCollisionConfig):
     if config.checker_type == CollisionCheckerType.PRIMITIVE:
+        # CuRobo
+        from curobo.geom.sdf.world import WorldPrimitiveCollision
+
         return WorldPrimitiveCollision(config)
     elif config.checker_type == CollisionCheckerType.BLOX:
         # CuRobo
@@ -48,3 +37,4 @@ def create_collision_checker(config: WorldCollisionConfig) -> WorldCollision:
         return WorldVoxelCollision(config)
     else:
         log_error("Unknown Collision Checker type: " + config.checker_type, exc_info=True)
+        raise NotImplementedError

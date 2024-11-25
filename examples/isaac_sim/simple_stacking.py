@@ -9,14 +9,6 @@
 # its affiliates is strictly prohibited.
 #
 
-
-try:
-    # Third Party
-    import isaacsim
-except ImportError:
-    pass
-
-
 # Third Party
 import torch
 
@@ -162,6 +154,7 @@ class CuroboController(BaseController):
             collision_cache={"obb": n_obstacle_cuboids, "mesh": n_obstacle_mesh},
             store_ik_debug=self._save_log,
             store_trajopt_debug=self._save_log,
+            velocity_scale=0.75,
         )
         self.motion_gen = MotionGen(motion_gen_config)
         print("warming up...")
@@ -180,7 +173,6 @@ class CuroboController(BaseController):
             partial_ik_opt=False,
             parallel_finetune=True,
             pose_cost_metric=pose_metric,
-            time_dilation_factor=0.75,
         )
         self.usd_help.load_stage(self.my_world.stage)
         self.cmd_plan = None
@@ -463,7 +455,7 @@ print(articulation_controller.get_gains())
 print(articulation_controller.get_max_efforts())
 robot = my_franka
 print("**********************")
-if False:
+if True:
     robot.enable_gravity()
     articulation_controller.set_gains(
         kps=np.array(

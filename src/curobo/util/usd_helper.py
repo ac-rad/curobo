@@ -65,9 +65,6 @@ def set_prim_translate(prim, translation):
 def set_prim_transform(
     prim, pose: List[float], scale: List[float] = [1, 1, 1], use_float: bool = False
 ):
-    if not prim.GetAttribute("xformOp:translate").IsValid():
-        UsdGeom.Xformable(prim).AddTranslateOp(UsdGeom.XformOp.PrecisionFloat)
-
     if prim.GetAttribute("xformOp:orient").IsValid():
         if isinstance(prim.GetAttribute("xformOp:orient").Get(), Gf.Quatf):
             use_float = True
@@ -75,6 +72,8 @@ def set_prim_transform(
         UsdGeom.Xformable(prim).AddOrientOp(UsdGeom.XformOp.PrecisionFloat)
         use_float = True
 
+    if not prim.GetAttribute("xformOp:translate").IsValid():
+        UsdGeom.Xformable(prim).AddTranslateOp(UsdGeom.XformOp.PrecisionFloat)
     if not prim.GetAttribute("xformOp:scale").IsValid():
         UsdGeom.Xformable(prim).AddScaleOp(UsdGeom.XformOp.PrecisionFloat)
     quat = pose[3:]
@@ -561,7 +560,6 @@ class UsdHelper:
     def get_prim_from_obstacle(
         self, obstacle: Obstacle, base_frame: str = "/world/obstacles", timestep=None
     ):
-
         if isinstance(obstacle, Cuboid):
             return self.add_cuboid_to_stage(obstacle, base_frame, timestep=timestep)
         elif isinstance(obstacle, Mesh):
@@ -831,8 +829,6 @@ class UsdHelper:
         visualize_robot_spheres: bool = True,
         robot_color: Optional[List[float]] = None,
         flatten_usd: bool = False,
-        goal_pose: Optional[Pose] = None,
-        goal_color: Optional[List[float]] = None,
     ):
         if kin_model is None:
             config_file = load_yaml(join_path(get_robot_configs_path(), robot_model_file))
@@ -849,25 +845,6 @@ class UsdHelper:
         if robot_color is not None:
             robot_mesh_model.add_color(robot_color)
             robot_mesh_model.add_material(Material(metallic=0.4))
-        if goal_pose is not None:
-            kin_model.link_names
-            if kin_model.ee_link in kin_model.kinematics_config.mesh_link_names:
-                index = kin_model.kinematics_config.mesh_link_names.index(kin_model.ee_link)
-                gripper_mesh = m[index]
-            if len(goal_pose.shape) == 1:
-                goal_pose = goal_pose.unsqueeze(0)
-            if len(goal_pose.shape) == 2:
-                goal_pose = goal_pose.unsqueeze(0)
-            for i in range(goal_pose.n_goalset):
-                g = goal_pose.get_index(0, i).to_list()
-                world_model.add_obstacle(
-                    Mesh(
-                        file_path=gripper_mesh.file_path,
-                        pose=g,
-                        name="goal_idx_" + str(i),
-                        color=goal_color,
-                    )
-                )
         usd_helper = UsdHelper()
         usd_helper.create_stage(
             save_path,
@@ -944,8 +921,6 @@ class UsdHelper:
         robot_asset_prim_path=None,
         robot_color: Optional[List[float]] = None,
         flatten_usd: bool = False,
-        goal_pose: Optional[Pose] = None,
-        goal_color: Optional[List[float]] = None,
     ):
         usd_exists = False
         # if usd file doesn't exist, fall back to urdf animation script
@@ -956,13 +931,10 @@ class UsdHelper:
                 robot_model_file = robot_model_file["robot_cfg"]
             robot_model_file["kinematics"]["load_link_names_with_mesh"] = True
             robot_model_file["kinematics"]["use_usd_kinematics"] = True
-            if "usd_path" in robot_model_file["kinematics"]:
 
-                usd_exists = file_exists(
-                    join_path(get_assets_path(), robot_model_file["kinematics"]["usd_path"])
-                )
-            else:
-                usd_exists = False
+            usd_exists = file_exists(
+                join_path(get_assets_path(), robot_model_file["kinematics"]["usd_path"])
+            )
         else:
             if kin_model.generator_config.usd_path is not None:
                 usd_exists = file_exists(kin_model.generator_config.usd_path)
@@ -990,8 +962,6 @@ class UsdHelper:
                 visualize_robot_spheres=visualize_robot_spheres,
                 robot_color=robot_color,
                 flatten_usd=flatten_usd,
-                goal_pose=goal_pose,
-                goal_color=goal_color,
             )
         if kin_model is None:
             robot_cfg = CudaRobotModelConfig.from_data_dict(

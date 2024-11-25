@@ -9,7 +9,6 @@
 # its affiliates is strictly prohibited.
 #
 # Standard Library
-import math
 from collections import defaultdict
 from typing import List
 
@@ -28,11 +27,3 @@ def list_idx_if_not_none(d_list: List, idx: int):
         else:
             idx_list.append(None)
     return idx_list
-
-
-def robust_floor(x: float, threshold: float = 1e-04) -> int:
-    nearest_int = round(x)
-    if abs(x - nearest_int) < threshold:
-        return nearest_int
-    else:
-        return int(math.floor(x))

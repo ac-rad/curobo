@@ -15,7 +15,7 @@ FROM curobo_docker:${IMAGE_TAG}
 # Set variables
 ARG USERNAME
 ARG USER_ID
-ARG CACHE_DATE=2024-07-19
+ARG CACHE_DATE=2024-04-25
 
 # Set environment variables
 

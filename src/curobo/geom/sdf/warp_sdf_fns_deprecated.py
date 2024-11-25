@@ -8,8 +8,6 @@
 # without an express license agreement from NVIDIA CORPORATION or
 # its affiliates is strictly prohibited.
 #
-"""Deprecated warp kernels that use API compatibile with warp-lang < 1.0.0"""
-
 # Third Party
 import warp as wp
 
@@ -38,7 +36,6 @@ def get_swept_closest_pt_batch_env(
     env_query_idx: wp.array(dtype=wp.int32),
     use_batch_env: wp.uint8,
 ):
-    """Kernel to compute swept closest point to mesh."""
     # we launch nspheres kernels
     # compute gradient here and return
     # distance is negative outside and positive inside
@@ -355,7 +352,6 @@ def get_closest_pt_batch_env(
     use_batch_env: wp.uint8,
     compute_esdf: wp.uint8,
 ):
-    """Kernel to compute closest point to mesh."""
     # we launch nspheres kernels
     # compute gradient here and return
     # distance is negative outside and positive inside

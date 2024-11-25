@@ -210,7 +210,6 @@ def load_curobo(
         trajopt_dt=0.25,
         finetune_dt_scale=finetune_dt_scale,
         high_precision=args.high_precision,
-        use_cuda_graph_trajopt_metrics=cuda_graph,
     )
     mg = MotionGen(motion_gen_config)
     mg.warmup(enable_graph=True, warmup_js_trajopt=False, parallel_finetune=parallel_finetune)
@@ -240,7 +239,7 @@ def benchmark_mb(
     og_tsteps = 32
     if override_tsteps is not None:
         og_tsteps = override_tsteps
-    og_finetune_dt_scale = 0.8
+    og_finetune_dt_scale = 0.85
     og_trajopt_seeds = 4
     og_parallel_finetune = True
     og_collision_activation_distance = 0.01
@@ -485,7 +484,7 @@ def benchmark_mb(
                             start_state,
                             q_traj,
                             dt=result.interpolation_dt,
-                            save_path=join_path("benchmark/log/usd/", problem_name)[1:] + ".usd",
+                            save_path=join_path("benchmark/log/usd/", problem_name) + ".usd",
                             interpolation_steps=1,
                             write_robot_usd_path="benchmark/log/usd/assets/",
                             robot_usd_local_reference="assets/",
@@ -500,7 +499,7 @@ def benchmark_mb(
                             result.optimized_plan,
                             result.optimized_dt.item(),
                             title=problem_name,
-                            save_path=join_path("benchmark/log/plot/", problem_name + ".png")[1:],
+                            save_path=join_path("benchmark/log/plot/", problem_name + ".png"),
                         )
 
                     m_list.append(current_metrics)
