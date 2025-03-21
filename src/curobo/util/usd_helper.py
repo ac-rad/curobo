@@ -463,34 +463,15 @@ def get_mesh_attrs1(prim, obstacle_info, cache=None, transform=None) -> Mesh:
     mat, t_scale = get_prim_world_pose(cache, prim)
     # also get any world scale:
     scale = t_scale
-    # position = list(prim.GetAttribute("xformOp:translate").Get())
-    # q = prim.GetAttribute("xformOp:orient").Get()
-    # orientation = [q.GetReal()] + list(q.GetImaginary())
-
-    # if transform is not None:
-    #     mat = transform @ mat
-    # # compute position and orientation on cuda:
-    # tensor_mat = torch.as_tensor(mat, device=torch.device("cuda", 0))
-    # pose = Pose.from_matrix(tensor_mat).tolist()
 
     if obstacle_info is None or len(obstacle_info) == 0 or str(prim.GetPath()) not in obstacle_info.keys():
         mat, t_scale = get_prim_world_pose(cache, prim)
         test_pose = Pose.from_matrix(mat).tolist()
-        # print(pose)
 
     else: 
         print("initial_pose", Pose.from_list(obstacle_info[str(prim.GetPath())]))
 
-        # test_pose = Pose.from_list(obstacle_info[str(prim.GetPath())])
-        # Transform pose to object frame
-        # obj_frame = np.array([[-1, 0, 0], 
-        #                       [0, -1, 0],
-        #                       [0, 0, 1]])
-        # pose = obj_frame @ obstacle_info[str(prim.GetPath())][:3]
-        # pose = pose + obstacle_info[str(prim.GetPath())][3:7]
         pose = obstacle_info[str(prim.GetPath())]
-        # pose[0] = -pose[0]
-        # pose[1] = -pose[1]
         pose = (
             Pose.from_list(pose, TensorDeviceType())
             .get_matrix()
@@ -503,154 +484,58 @@ def get_mesh_attrs1(prim, obstacle_info, cache=None, transform=None) -> Mesh:
                                 0, -1, 0, 0,
                                 0, 0, 1, 0,
                                 0, 0, 0, 1)
-        if "pozicija_11_prozor_1" in str(prim.GetPath()):
-            mat = obj_frame * Gf.Matrix4d(-1, 0, 0, 0,
-                                        0, 0, 1, 0,
-                                        0, 1, 0, 0,
-                                        0, 0, 0, 1)
-        else:
-            mat = obj_frame * Gf.Matrix4d().SetIdentity()
-        
-        frame_back = mat
-        print("initiral matrix", mat)
+        mat = Gf.Matrix4d().SetIdentity()
+        frame_back = obj_frame
 
         xformable = UsdGeom.Xformable(prim)
         xform_ops = xformable.GetOrderedXformOps()
         print(f"Transform ops for {prim.GetPath()}: {xformable.GetOrderedXformOps()}")
-        # for op in xform_ops:
-        #     op_type = op.GetOpType()
-        #     print("op_type", op_type)
-        #     if op_type == UsdGeom.XformOp.TypeTranslate:
-        #         translation = op.Get()
-        #         mat = mat @ Gf.Matrix4d().SetTranslate(translation)
-        #     elif op_type == UsdGeom.XformOp.TypeRotateXYZ:
-        #         rotation = op.Get()
-        #         mat = mat @ Gf.Matrix4d().SetRotate(rotation)
-        #     elif op_type == UsdGeom.XformOp.TypeTransform:
-        #         transform = op.Get()
-        #         mat = mat @ transform
+     
         rotation = Gf.Matrix4d().SetIdentity()
         for op in xform_ops:
             op_type = op.GetOpType()
-            print("op_type", op_type)
             if op_type == UsdGeom.XformOp.TypeTranslate:
                 # Get the translation vector
                 translation = op.Get()
-                print("Translation:", translation)  # Printing the translation values
                 scaled_trans = tuple(coord / 100 for coord in translation)
-                # scaled_trans = (scaled_trans[0], scaled_trans[1], scaled_trans[2])
-                mat = mat * Gf.Matrix4d().SetTranslate(scaled_trans)
-                print("mat after translation", mat)
-                print(Gf.Matrix4d().SetTranslate(scaled_trans))
+                mat = mat * Gf.Matrix4d().SetTranslate(scaled_trans).GetTranspose()
 
             elif op_type == UsdGeom.XformOp.TypeRotateXYZ:
                 # Get the rotation (assuming it's a Gf.Rotation object)
                 rotation = op.Get()
-                print("Rotation (XYZ):", rotation)  # Printing the rotation values
-                mat = Gf.Matrix4d().SetRotate(rotation) * rotation
+                rotation = Gf.Matrix4d().SetRotate(rotation) 
 
             elif op_type == UsdGeom.XformOp.TypeOrient:
+                # Get the orientation
                 orient = op.Get()
-                print("Orientation", orient)
                 rotation = Gf.Matrix4d().SetRotate(orient) 
-                mat = rotation * mat
-                print("rotation", rotation)
              
             elif op_type == UsdGeom.XformOp.TypeTransform:
-                # Get the full transform (this would be a Gf.Matrix4d)
                 transform = op.Get()
-                print("Transform Matrix:", transform)  # Printing the full transform matrix
                 translation = transform.GetRow(3)
                 scaled_trans = Gf.Vec4d(translation[0]/100,
                                         translation[1]/100,
                                         translation[2]/100,
                                         translation[3])
                 transform.SetRow(3, scaled_trans)
-                mat = mat * transform
-                print("mat after transform", mat)
-
-        # parent_prim = prim
-        # prim_list = []
-        # while str(parent_prim.GetPath()) != "/World/envs/env_0/Robot/fh/pozicija_11_prozor_1":
-        #     prim_list.append(parent_prim)
-        #     parent_prim = parent_prim.GetParent()
-        #     print(str(parent_prim.GetPath()))
-        # prim_list.append(parent_prim)
-        
-        # for i in range(len(prim_list)-1, -1, -1):
-        #     prim = prim_list[i]
-        #     xformable = UsdGeom.Xformable(prim)
-        #     xform_ops = xformable.GetOrderedXformOps()
-        #     print(f"Transform ops for {prim.GetPath()}: {xformable.GetOrderedXformOps()}")
-        #     for op in xform_ops:
-        #         op_type = op.GetOpType()
-        #         print("op_type", op_type)
-        #         if op_type == UsdGeom.XformOp.TypeTranslate:
-        #             # Get the translation vector
-        #             translation = op.Get()
-        #             print("Translation:", translation)  # Printing the translation values
-        #             scaled_trans = tuple(coord / 100 for coord in translation)
-        #             mat = mat * Gf.Matrix4d().SetTranslate(scaled_trans)
-
-        #         elif op_type == UsdGeom.XformOp.TypeRotateXYZ:
-        #             # Get the rotation (assuming it's a Gf.Rotation object)
-        #             rotation = op.Get(),
-        #             print("Rotation (XYZ):", rotation)  # Printing the rotation values
-        #             mat = mat * Gf.Matrix4d().SetRotate(rotation)
-
-        #         elif op_type == UsdGeom.XformOp.TypeTransform:
-        #             # Get the full transform (this would be a Gf.Matrix4d)
-        #             transform = op.Get()
-        #             print("Transform Matrix:", transform)  # Printing the full transform matrix
-        #             translation = transform.GetRow(3)
-        #             scaled_trans = Gf.Vec4d(translation[0] / 100,
-        #                                     translation[1] / 100,
-        #                                     translation[2] / 100,
-        #                                     translation[3])
-        #             transform.SetRow(3, scaled_trans)
-        #             print(transform)
-        #             mat = mat * transform
-        print("debugging")
-        print("final matrix", mat)
-        print("initial pose", pose)
+                mat = mat * transform.GetTranspose()
+                
         pose = pose.astype(np.float64)
 
         gf_pose = Gf.Matrix4d(pose)
-        mat = gf_pose * mat.GetTranspose() 
-        print("mat after transformation", mat)
-        mat = mat * frame_back 
-        print("mat after frame back", mat)
+        gf_pose = obj_frame * gf_pose
+        mat = gf_pose * mat
+        mat = rotation * mat.GetTranspose()
+        mat = frame_back * mat.GetTranspose()
 
         world_transform: Gf.Matrix4d = cache.GetLocalToWorldTransform(prim)
         # get scale:
         t_scale: Gf.Vec3d = Gf.Vec3d(*(v.GetLength() for v in world_transform.ExtractRotationMatrix()))
-        
-        # translation = mat.GetRow(3)
-        # x = translation[0] / 100
-        # y = translation[1] / 100
-        # z = translation[2] / 100
-
-        # test_pose = obstacle_info[str(prim.GetPath())]
-        # test_pose[0] += x
-        # test_pose[1] += y
-        # test_pose[2] += z
-        # test_pose = torch.tensor(test_pose, dtype = torch.float32)
-        # test_pose = (
-        #     Pose.from_list(test_pose, TensorDeviceType())
-        #     .get_matrix()
-        #     .view(4, 4)
-        #     .cpu()
-        #     .numpy()
-        # )
-        # test_pose = Pose.from_matrix(test_pose).tolist()
 
     scale = list(t_scale)
     
-    # compute position and orientation on cuda:
-    # tensor_mat = torch.as_tensor(mat, device=torch.device("cuda", 0), dtype = torch.float32)
+    torch.as_tensor(mat, device=torch.device("cuda", 0), dtype = torch.float32)
     pose = Pose.from_matrix(mat).tolist()
-    print(pose)
-    #
 
     if len(tri_faces) == 0:
         faces = quad_faces
